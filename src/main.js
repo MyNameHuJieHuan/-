@@ -10,6 +10,7 @@ import '@/assets/scss/index.scss'
 import httpRequest from '@/utils/httpRequest' // api: https://github.com/axios/axios
 import { isAuth } from '@/utils'
 import cloneDeep from 'lodash/cloneDeep'
+import axios from 'axios'
 
 Vue.use(VueCookie)
 Vue.config.productionTip = false
@@ -22,13 +23,21 @@ if (process.env.NODE_ENV !== 'production') {
 // 挂载全局
 Vue.prototype.$http = httpRequest // ajax请求方法
 Vue.prototype.isAuth = isAuth     // 权限方法
-
+Vue.prototype.$axios = axios
+axios.defaults.baseURL = 'http://localhost:8018/'
 // 保存整站vuex本地储存初始状态
 window.SITE_CONFIG['storeState'] = cloneDeep(store.state)
+
+// 给axios设置全局拦截token
+axios.interceptors.request.use(config => {
+  config.headers.token = Vue.cookie.get('token')
+  return config
+})
 
 /* eslint-disable no-new */
 new Vue({
   el: '#app',
+  axios,
   router,
   store,
   template: '<App/>',

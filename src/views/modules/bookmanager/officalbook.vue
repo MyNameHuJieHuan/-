@@ -1,10 +1,13 @@
 <template>
-  <div class="mod-oss">
-    <el-form :inline="true" :model="dataForm">
+  <div class="mod-config">
+    <el-form :inline="true" :model="dataForm" @keyup.enter.native="getDataList()">
       <el-form-item>
-        <el-button type="primary" @click="configHandle()">云存储配置</el-button>
-        <el-button type="primary" @click="uploadHandle()">上传文件</el-button>
-        <el-button type="danger" @click="deleteHandle()" :disabled="dataListSelections.length <= 0">批量删除</el-button>
+        <el-input v-model="dataForm.key" placeholder="参数名" clearable></el-input>
+      </el-form-item>
+      <el-form-item>
+        <el-button @click="getDataList()">查询</el-button>
+        <el-button v-if="isAuth('bookmanager:officalbook:save')" type="primary" @click="addOrUpdateHandle()">新增</el-button>
+        <el-button v-if="isAuth('bookmanager:officalbook:delete')" type="danger" @click="deleteHandle()" :disabled="dataListSelections.length <= 0">批量删除</el-button>
       </el-form-item>
     </el-form>
     <el-table
@@ -20,24 +23,76 @@
         width="50">
       </el-table-column>
       <el-table-column
-        prop="id"
+        prop="isbn"
         header-align="center"
         align="center"
-        width="80"
-        label="ID">
+        label="ISBN编码">
       </el-table-column>
       <el-table-column
-        prop="url"
+        prop="bookName"
         header-align="center"
         align="center"
-        label="URL地址">
+        label="图书名">
       </el-table-column>
       <el-table-column
-        prop="createDate"
+        prop="bookPress"
         header-align="center"
         align="center"
-        width="180"
-        label="创建时间">
+        label="图书出版社">
+      </el-table-column>
+      <el-table-column
+        prop="author"
+        header-align="center"
+        align="center"
+        label="作者">
+      </el-table-column>
+      <el-table-column
+        prop="pressTime"
+        header-align="center"
+        align="center"
+        label="出版时间">
+      </el-table-column>
+      <el-table-column
+        prop="pricing"
+        header-align="center"
+        align="center"
+        label="定价">
+      </el-table-column>
+      <el-table-column
+        prop="category"
+        header-align="center"
+        align="center"
+        label="分类">
+      </el-table-column>
+      <el-table-column
+        prop="format"
+        header-align="center"
+        align="center"
+        label="开本">
+      </el-table-column>
+      <el-table-column
+        prop="pagination"
+        header-align="center"
+        align="center"
+        label="页数">
+      </el-table-column>
+      <el-table-column
+        prop="language"
+        header-align="center"
+        align="center"
+        label="正文语种">
+      </el-table-column>
+      <el-table-column
+        prop="imageUrl"
+        header-align="center"
+        align="center"
+        label="图书照片地址">
+      </el-table-column>
+      <el-table-column
+        prop="booktxtUrl"
+        header-align="center"
+        align="center"
+        label="图书txt文件地址">
       </el-table-column>
       <el-table-column
         fixed="right"
@@ -46,6 +101,7 @@
         width="150"
         label="操作">
         <template slot-scope="scope">
+          <el-button type="text" size="small" @click="addOrUpdateHandle(scope.row.id)">修改</el-button>
           <el-button type="text" size="small" @click="deleteHandle(scope.row.id)">删除</el-button>
         </template>
       </el-table-column>
@@ -59,33 +115,30 @@
       :total="totalPage"
       layout="total, sizes, prev, pager, next, jumper">
     </el-pagination>
-    <!-- 弹窗, 云存储配置 -->
-    <config v-if="configVisible" ref="config"></config>
-    <!-- 弹窗, 上传文件 -->
-    <upload v-if="uploadVisible" ref="upload" @refreshDataList="getDataList"></upload>
+    <!-- 弹窗, 新增 / 修改 -->
+    <add-or-update v-if="addOrUpdateVisible" ref="addOrUpdate" @refreshDataList="getDataList"></add-or-update>
   </div>
 </template>
 
 <script>
-  import Config from './oss-config'
-  import Upload from './oss-upload'
+  import AddOrUpdate from './officalbook-add-or-update'
   export default {
     data () {
       return {
-        dataForm: {},
+        dataForm: {
+          key: ''
+        },
         dataList: [],
         pageIndex: 1,
         pageSize: 10,
         totalPage: 0,
         dataListLoading: false,
         dataListSelections: [],
-        configVisible: false,
-        uploadVisible: false
+        addOrUpdateVisible: false
       }
     },
     components: {
-      Config,
-      Upload
+      AddOrUpdate
     },
     activated () {
       this.getDataList()
@@ -95,11 +148,12 @@
       getDataList () {
         this.dataListLoading = true
         this.$http({
-          url: this.$http.adornUrl('/sys/oss/list'),
+          url: this.$http.adornUrl('/bookmanager/officalbook/list'),
           method: 'get',
           params: this.$http.adornParams({
             'page': this.pageIndex,
-            'limit': this.pageSize
+            'limit': this.pageSize,
+            'key': this.dataForm.key
           })
         }).then(({data}) => {
           if (data && data.code === 0) {
@@ -127,18 +181,11 @@
       selectionChangeHandle (val) {
         this.dataListSelections = val
       },
-      // 云存储配置
-      configHandle () {
-        this.configVisible = true
+      // 新增 / 修改
+      addOrUpdateHandle (id) {
+        this.addOrUpdateVisible = true
         this.$nextTick(() => {
-          this.$refs.config.init()
-        })
-      },
-      // 上传文件
-      uploadHandle () {
-        this.uploadVisible = true
-        this.$nextTick(() => {
-          this.$refs.upload.init()
+          this.$refs.addOrUpdate.init(id)
         })
       },
       // 删除
@@ -152,7 +199,7 @@
           type: 'warning'
         }).then(() => {
           this.$http({
-            url: this.$http.adornUrl('/sys/oss/delete'),
+            url: this.$http.adornUrl('/bookmanager/officalbook/delete'),
             method: 'post',
             data: this.$http.adornData(ids, false)
           }).then(({data}) => {
@@ -168,7 +215,7 @@
               this.$message.error(data.msg)
             }
           })
-        }).catch(() => {})
+        })
       }
     }
   }

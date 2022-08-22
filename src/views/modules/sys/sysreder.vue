@@ -1,10 +1,13 @@
 <template>
-  <div class="mod-oss">
-    <el-form :inline="true" :model="dataForm">
+  <div class="mod-config">
+    <el-form :inline="true" :model="dataForm" @keyup.enter.native="getDataList()">
       <el-form-item>
-        <el-button type="primary" @click="configHandle()">云存储配置</el-button>
-        <el-button type="primary" @click="uploadHandle()">上传文件</el-button>
-        <el-button type="danger" @click="deleteHandle()" :disabled="dataListSelections.length <= 0">批量删除</el-button>
+        <el-input v-model="dataForm.key" placeholder="参数名" clearable></el-input>
+      </el-form-item>
+      <el-form-item>
+        <el-button @click="getDataList()">查询</el-button>
+        <el-button v-if="isAuth('generator:sysreder:save')" type="primary" @click="addOrUpdateHandle()">新增</el-button>
+        <el-button v-if="isAuth('generator:sysreder:delete')" type="danger" @click="deleteHandle()" :disabled="dataListSelections.length <= 0">批量删除</el-button>
       </el-form-item>
     </el-form>
     <el-table
@@ -20,23 +23,57 @@
         width="50">
       </el-table-column>
       <el-table-column
-        prop="id"
+        prop="rederId"
         header-align="center"
         align="center"
-        width="80"
-        label="ID">
+        label="">
       </el-table-column>
       <el-table-column
-        prop="url"
+        prop="username"
         header-align="center"
         align="center"
-        label="URL地址">
+        label="读者名">
       </el-table-column>
       <el-table-column
-        prop="createDate"
+        prop="password"
         header-align="center"
         align="center"
-        width="180"
+        label="密码">
+      </el-table-column>
+      <el-table-column
+        prop="salt"
+        header-align="center"
+        align="center"
+        label="盐">
+      </el-table-column>
+      <el-table-column
+        prop="email"
+        header-align="center"
+        align="center"
+        label="邮箱">
+      </el-table-column>
+      <el-table-column
+        prop="mobile"
+        header-align="center"
+        align="center"
+        label="手机号">
+      </el-table-column>
+      <el-table-column
+        prop="status"
+        header-align="center"
+        align="center"
+        label="状态  0：禁用   1：正常">
+      </el-table-column>
+      <el-table-column
+        prop="createUserId"
+        header-align="center"
+        align="center"
+        label="创建者ID">
+      </el-table-column>
+      <el-table-column
+        prop="createTime"
+        header-align="center"
+        align="center"
         label="创建时间">
       </el-table-column>
       <el-table-column
@@ -46,7 +83,8 @@
         width="150"
         label="操作">
         <template slot-scope="scope">
-          <el-button type="text" size="small" @click="deleteHandle(scope.row.id)">删除</el-button>
+          <el-button type="text" size="small" @click="addOrUpdateHandle(scope.row.rederId)">修改</el-button>
+          <el-button type="text" size="small" @click="deleteHandle(scope.row.rederId)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -59,33 +97,30 @@
       :total="totalPage"
       layout="total, sizes, prev, pager, next, jumper">
     </el-pagination>
-    <!-- 弹窗, 云存储配置 -->
-    <config v-if="configVisible" ref="config"></config>
-    <!-- 弹窗, 上传文件 -->
-    <upload v-if="uploadVisible" ref="upload" @refreshDataList="getDataList"></upload>
+    <!-- 弹窗, 新增 / 修改 -->
+    <add-or-update v-if="addOrUpdateVisible" ref="addOrUpdate" @refreshDataList="getDataList"></add-or-update>
   </div>
 </template>
 
 <script>
-  import Config from './oss-config'
-  import Upload from './oss-upload'
+  import AddOrUpdate from './sysreder-add-or-update'
   export default {
     data () {
       return {
-        dataForm: {},
+        dataForm: {
+          key: ''
+        },
         dataList: [],
         pageIndex: 1,
         pageSize: 10,
         totalPage: 0,
         dataListLoading: false,
         dataListSelections: [],
-        configVisible: false,
-        uploadVisible: false
+        addOrUpdateVisible: false
       }
     },
     components: {
-      Config,
-      Upload
+      AddOrUpdate
     },
     activated () {
       this.getDataList()
@@ -95,11 +130,12 @@
       getDataList () {
         this.dataListLoading = true
         this.$http({
-          url: this.$http.adornUrl('/sys/oss/list'),
+          url: this.$http.adornUrl('/generator/sysreder/list'),
           method: 'get',
           params: this.$http.adornParams({
             'page': this.pageIndex,
-            'limit': this.pageSize
+            'limit': this.pageSize,
+            'key': this.dataForm.key
           })
         }).then(({data}) => {
           if (data && data.code === 0) {
@@ -127,24 +163,17 @@
       selectionChangeHandle (val) {
         this.dataListSelections = val
       },
-      // 云存储配置
-      configHandle () {
-        this.configVisible = true
+      // 新增 / 修改
+      addOrUpdateHandle (id) {
+        this.addOrUpdateVisible = true
         this.$nextTick(() => {
-          this.$refs.config.init()
-        })
-      },
-      // 上传文件
-      uploadHandle () {
-        this.uploadVisible = true
-        this.$nextTick(() => {
-          this.$refs.upload.init()
+          this.$refs.addOrUpdate.init(id)
         })
       },
       // 删除
       deleteHandle (id) {
         var ids = id ? [id] : this.dataListSelections.map(item => {
-          return item.id
+          return item.rederId
         })
         this.$confirm(`确定对[id=${ids.join(',')}]进行[${id ? '删除' : '批量删除'}]操作?`, '提示', {
           confirmButtonText: '确定',
@@ -152,7 +181,7 @@
           type: 'warning'
         }).then(() => {
           this.$http({
-            url: this.$http.adornUrl('/sys/oss/delete'),
+            url: this.$http.adornUrl('/generator/sysreder/delete'),
             method: 'post',
             data: this.$http.adornData(ids, false)
           }).then(({data}) => {
@@ -168,7 +197,7 @@
               this.$message.error(data.msg)
             }
           })
-        }).catch(() => {})
+        })
       }
     }
   }

@@ -1,18 +1,19 @@
 <template>
   <el-dialog
-    :title="!dataForm.id ? '新增' : '修改'"
+    :title="!dataForm.debitId ? '新增' : '修改'"
     :close-on-click-modal="false"
     :visible.sync="visible">
     <el-form :model="dataForm" :rules="dataRule" ref="dataForm" @keyup.enter.native="dataFormSubmit()" label-width="80px">
-      <el-form-item label="参数名" prop="paramKey">
-        <el-input v-model="dataForm.paramKey" placeholder="参数名"></el-input>
-      </el-form-item>
-      <el-form-item label="参数值" prop="paramValue">
-        <el-input v-model="dataForm.paramValue" placeholder="参数值"></el-input>
-      </el-form-item>
-      <el-form-item label="备注" prop="remark">
-        <el-input v-model="dataForm.remark" placeholder="备注"></el-input>
-      </el-form-item>
+    <el-form-item label="读者" prop="userId">
+      <el-select v-model="value" filterable placeholder="请选择">
+        <el-option
+          v-for="item in options"
+          :key="item.readerId"
+          :label="item.readerName"
+          :value="item.readerId">
+        </el-option>
+      </el-select>
+    </el-form-item>
     </el-form>
     <span slot="footer" class="dialog-footer">
       <el-button @click="visible = false">取消</el-button>
@@ -25,39 +26,48 @@
   export default {
     data () {
       return {
+        options: [],
+        value: '',
+        userName: '',
         visible: false,
         dataForm: {
-          id: 0,
-          paramKey: '',
-          paramValue: '',
-          remark: ''
+          debitId: 0,
+          userId: ''
         },
         dataRule: {
-          paramKey: [
-            { required: true, message: '参数名不能为空', trigger: 'blur' }
-          ],
-          paramValue: [
-            { required: true, message: '参数值不能为空', trigger: 'blur' }
+          userId: [
+            { required: true, message: '读者不能为空', trigger: 'blur' }
           ]
         }
       }
     },
+    created: function () {
+      this.getReaderList()
+    },
     methods: {
+      // 创建方法用来查询所有的读者信息
+      getReaderList () {
+        this.$http({
+          url: this.$http.adornUrl('sys/user/getReaderList'),
+          method: 'get',
+          params: this.$http.adornParams()
+        }).then(({data}) => {
+          this.options = data.list
+        })
+      },
       init (id) {
-        this.dataForm.id = id || 0
+        this.dataForm.debitId = id || 0
         this.visible = true
         this.$nextTick(() => {
           this.$refs['dataForm'].resetFields()
-          if (this.dataForm.id) {
+          if (this.dataForm.debitId) {
             this.$http({
-              url: this.$http.adornUrl(`/sys/config/info/${this.dataForm.id}`),
+              url: this.$http.adornUrl(`/bookmanager/debitinfo/info/${this.dataForm.debitId}`),
               method: 'get',
               params: this.$http.adornParams()
             }).then(({data}) => {
               if (data && data.code === 0) {
-                this.dataForm.paramKey = data.config.paramKey
-                this.dataForm.paramValue = data.config.paramValue
-                this.dataForm.remark = data.config.remark
+                this.value = data.debitInfo.userId
               }
             })
           }
@@ -65,16 +75,17 @@
       },
       // 表单提交
       dataFormSubmit () {
+        this.userName = this.$cookie.get('userName')
         this.$refs['dataForm'].validate((valid) => {
           if (valid) {
             this.$http({
-              url: this.$http.adornUrl(`/sys/config/${!this.dataForm.id ? 'save' : 'update'}`),
+              url: this.$http.adornUrl(`/bookmanager/debitinfo/${!this.dataForm.debitId ? 'save' : 'update'}`),
               method: 'post',
               data: this.$http.adornData({
-                'id': this.dataForm.id || undefined,
-                'paramKey': this.dataForm.paramKey,
-                'paramValue': this.dataForm.paramValue,
-                'remark': this.dataForm.remark
+                'debitId': this.dataForm.debitId || undefined,
+                'userId': this.value,
+                'insertName': this.userName,
+                'updateName': this.userName
               })
             }).then(({data}) => {
               if (data && data.code === 0) {
@@ -89,6 +100,8 @@
               } else {
                 this.$message.error(data.msg)
               }
+              // 清空表单中的数据
+              this.value = ''
             })
           }
         })

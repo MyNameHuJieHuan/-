@@ -1,18 +1,12 @@
 <template>
   <el-dialog
-    :title="!dataForm.id ? '新增' : '修改'"
+    :title="!dataForm.classifyId ? '新增' : '修改'"
     :close-on-click-modal="false"
     :visible.sync="visible">
     <el-form :model="dataForm" :rules="dataRule" ref="dataForm" @keyup.enter.native="dataFormSubmit()" label-width="80px">
-      <el-form-item label="参数名" prop="paramKey">
-        <el-input v-model="dataForm.paramKey" placeholder="参数名"></el-input>
-      </el-form-item>
-      <el-form-item label="参数值" prop="paramValue">
-        <el-input v-model="dataForm.paramValue" placeholder="参数值"></el-input>
-      </el-form-item>
-      <el-form-item label="备注" prop="remark">
-        <el-input v-model="dataForm.remark" placeholder="备注"></el-input>
-      </el-form-item>
+    <el-form-item label="类别名" prop="classifyName">
+      <el-input v-model="dataForm.classifyName" placeholder="类别名"></el-input>
+    </el-form-item>
     </el-form>
     <span slot="footer" class="dialog-footer">
       <el-button @click="visible = false">取消</el-button>
@@ -26,38 +20,32 @@
     data () {
       return {
         visible: false,
+        userName: '',
         dataForm: {
-          id: 0,
-          paramKey: '',
-          paramValue: '',
-          remark: ''
+          classifyId: 0,
+          classifyName: ''
         },
         dataRule: {
-          paramKey: [
-            { required: true, message: '参数名不能为空', trigger: 'blur' }
-          ],
-          paramValue: [
-            { required: true, message: '参数值不能为空', trigger: 'blur' }
+          classifyName: [
+            { required: true, message: '类别名不能为空', trigger: 'blur' }
           ]
         }
       }
     },
     methods: {
       init (id) {
-        this.dataForm.id = id || 0
+        this.dataForm.classifyId = id || 0
         this.visible = true
         this.$nextTick(() => {
           this.$refs['dataForm'].resetFields()
-          if (this.dataForm.id) {
+          if (this.dataForm.classifyId) {
             this.$http({
-              url: this.$http.adornUrl(`/sys/config/info/${this.dataForm.id}`),
+              url: this.$http.adornUrl(`/bookmanager/classify/info/${this.dataForm.classifyId}`),
               method: 'get',
               params: this.$http.adornParams()
             }).then(({data}) => {
               if (data && data.code === 0) {
-                this.dataForm.paramKey = data.config.paramKey
-                this.dataForm.paramValue = data.config.paramValue
-                this.dataForm.remark = data.config.remark
+                this.dataForm.classifyName = data.classify.classifyName
               }
             })
           }
@@ -65,16 +53,17 @@
       },
       // 表单提交
       dataFormSubmit () {
+        this.userName = this.$cookie.get('userName')
         this.$refs['dataForm'].validate((valid) => {
           if (valid) {
             this.$http({
-              url: this.$http.adornUrl(`/sys/config/${!this.dataForm.id ? 'save' : 'update'}`),
+              url: this.$http.adornUrl(`/bookmanager/classify/${!this.dataForm.classifyId ? 'save' : 'update'}`),
               method: 'post',
               data: this.$http.adornData({
-                'id': this.dataForm.id || undefined,
-                'paramKey': this.dataForm.paramKey,
-                'paramValue': this.dataForm.paramValue,
-                'remark': this.dataForm.remark
+                'classifyId': this.dataForm.classifyId || undefined,
+                'classifyName': this.dataForm.classifyName,
+                'insertName': this.userName,
+                'updateName': this.userName
               })
             }).then(({data}) => {
               if (data && data.code === 0) {

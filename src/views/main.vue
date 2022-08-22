@@ -18,6 +18,7 @@
   import MainNavbar from './main-navbar'
   import MainSidebar from './main-sidebar'
   import MainContent from './main-content'
+  import 'element-ui/lib/theme-chalk/index.css'
   export default {
     provide () {
       return {
